@@ -1,0 +1,55 @@
+﻿@page "/test"
+    <style>
+        body {
+            background: #ccc;
+        }
+
+        .btn {
+            transition: color .75s ease-out;
+            box-shadow: none !important;
+            border-radius: .6rem;
+            line-height: 1.6;
+            border: 1px solid grey;
+        }
+
+            .btn.clicked {
+                background-image: url(bg.png);
+                background-repeat: no-repeat;
+                background-size: 0% 0%;
+                color: #333;
+            }
+    </style>
+    <div class="container">
+        <h3>@Seconds has elapsed</h3>
+        <br />
+        <button class="btn btn-info" @onclick="@(()=>
+                                           {
+                                               if (CounterHasStarted) return;
+                                               CounterHasStarted = true;
+                                               Task.Run(async ()=>
+                                               {
+                                                   while (CounterHasStarted)
+                                                   {
+                                                       Seconds++;
+                                                       await Task.Delay(1000);
+                                                       await InvokeAsync(StateHasChanged);
+
+                                                       if (Seconds is 5)
+                                                       {
+                                                           await JsRuntime.InvokeVoidAsync("open", $"{Ez.ClientUrl}/openpage/", "_blank", "location=yes,height=570,width=520,scrollbars=yes,status=yes");
+                                                       }
+                                                   }
+                                               });
+
+                                           })">
+            Start counter
+        </button>
+        <button class="btn btn-danger" @onclick="()=>CounterHasStarted=false">Stop counter</button>
+        <button class="btn btn-success" @onclick="()=>Seconds = 0">Reset counter</button>
+    </div>
+
+
+    @code {
+        bool CounterHasStarted = false;
+        long Seconds = 0;
+    }

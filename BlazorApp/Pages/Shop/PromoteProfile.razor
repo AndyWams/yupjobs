@@ -1,0 +1,134 @@
+﻿@page "/promoteprofile/{Id}"
+@*@inject IJSRuntime Runtime*@
+
+<h3>PromoteProfile</h3>
+@if (Loading)
+{
+    <Loader />
+}
+else if (AddMethod)
+{
+    <BlazorApp.Pages.Payment.AddPaymentMethod ResetAction="@(()=>
+                                                             {
+                                                                 AddMethod = false;
+                                                                 StateHasChanged();
+                                                             })" />
+}
+else
+{
+    <div class="container-fluid">
+        <h3>Promote</h3>
+        <div class="card-wrapper">
+            <div class="card-body">
+                    <div class="container">
+                        <h4>Boost post <a href="@($"/looking-for-jobs/details/{Post.Id}")">@Post.Title</a></h4><hr />
+                        <h5>Total: @Price @Session.User.DefaultCurrency</h5>
+                    </div>
+                <hr />
+                <label for="payment-method-list">Select payment method</label>
+                <div id="payment-method-list">
+                    @{
+                        var nmethod = new UserPaymentMethod { Type = MethodType.YupWallet, MethodId = "WALLET", Id = "WALLET" };
+                        if (Session.UserPaymentMethods.Count(x => x.MethodId == "WALLET") < 1)
+                            Session.UserPaymentMethods.Add(nmethod);
+                    }
+                    @foreach (var method in Session.UserPaymentMethods)
+                    {
+                        <div @onclick="()=> SelectedMethod = method.Id">
+                            <BlazorApp.Pages.Payment.PaymentMethod Method="method" Selected="SelectedMethod == method.Id" />
+                        </div>
+                    }
+                    <br />
+                    <button class="btn btn-info" @onclick="()=>AddMethod=true">Add new payment method</button>
+                </div>
+                <div class="container-fluid">
+                    <button class="btn btn-primary btn-sm btn-block" @onclick="PromotePost">Promote Job</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+        bool Loading = true;
+        [Parameter] public string Id { get; set; }
+
+        JobSearchPost Post = new JobSearchPost();
+        bool AddMethod = false;
+        string SelectedMethod = Session.UserPaymentMethods.FirstOrDefault()?.Id;
+        decimal Price = .99m;
+
+        async Task PromotePost()
+        {
+            if (string.IsNullOrWhiteSpace(SelectedMethod))
+            {
+                ToastService.ShowToast("Please select a payment method", ToastLevel.Warning);
+                return;
+            }
+
+            using var resp = await Ez.GetHttpPostResponse("promo/promoteprofile", new Dictionary<string, string>
+{
+            {"methodId", SelectedMethod },
+            {"postId", Post.Id },
+        });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var charge = (await resp.Content.ReadAsStringAsync()).FromJson<Dictionary<string, dynamic>>();
+                if (charge["redirect"])
+                {
+                    NavMan.NavigateTo(charge["url"]);
+                }
+                else if (charge["newtab"])
+                {
+                    await JsRuntime.InvokeVoidAsync("open", (string)charge["url"], "_blank");
+                    //NavMan.NavigateTo(charge["url"]);
+                }
+                else if (charge["paid"])
+                {
+                    UserBill bill = charge["bill"];
+                    NavMan.NavigateTo($"/success/pay/{bill.Id}");
+                }
+                else
+                {
+                    ToastService.ShowToast("Could not process payment", ToastLevel.Warning);
+                }
+            }
+        }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cnt = 0;
+        while (!Session.GotInfo)
+        {
+            await Task.Delay(1000);
+            if (cnt > 5)
+            {
+                NavMan.NavigateTo("/login");
+                return;
+            }
+            cnt++;
+        }
+
+
+
+        //using var resp = Type is PrType.Job ? await Ez.GetHttpPostResponse("post/get") : await Ez.GetHttpPostResponse("");
+
+        using var post = await Ez.GetHttpPostResponse("post/getsearch", new Dictionary<string, string>
+        {
+            {"id", Id }
+        });
+
+        if (post.IsSuccessStatusCode)
+            Post = (await post.Content.ReadAsStringAsync()).FromJson<JobSearchPost>();
+        else {
+            Debug.WriteLine("Post is: " + await post.Content.ReadAsStringAsync());
+            NavMan.NavigateTo("/notfound");
+                };
+
+
+
+        Loading = false;
+        await base.OnInitializedAsync();
+    }
+}

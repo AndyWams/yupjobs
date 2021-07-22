@@ -1,0 +1,97 @@
+﻿
+@if (Loading)
+{
+    <Loader></Loader>
+}
+else
+{ <div class="container-fluid">
+    <label>Please scan the files with an antivirus before opening them, we cannot guarantee the file is clean</label>
+    @foreach (var file in Files)
+    {
+        <button class="btn btn-outline-primary btn-sm btn-block" @onclick="@(async()=>await JsRuntime.InvokeVoidAsync("open", file.DownloadUrl, "_blank"))">Download @file.Name</button>
+    }
+</div>
+    <h3>Upload File</h3>
+    <form @onsubmit="UploadFileAndCreateLink">
+        <div class="form-group">
+            <label for="upload">ZIP File to upload</label>
+            <input type="file" accept=".zip" @ref="_ref" required />
+            <input placeholder="File Name" @bind="FileName" required />
+            <button type="submit" disabled="@Disabled">Upload File</button>
+            <label>
+                The file size upload limit is 50 MB, to upload bigger files use a third party service such as 
+                <a href="drive.google.com">Google Drive</a> or <a href="https://wetransfer.com">WeTransfer</a>
+            </label>
+        </div>
+    </form>
+    <hr />
+
+
+}
+
+@code {
+    bool Loading = true;
+    string FileName = $"Project file {DateTime.Today.ToShortDateString()}";
+    bool Disabled = false;
+
+    List<ChatFile> Files = new List<ChatFile>();
+
+    [Inject]
+    public IFileReaderService FileReaderService { get; set; }
+    [Parameter] public Conversation Conversation { get; set; }
+    ElementReference _ref = new ElementReference();
+
+    async Task UploadFileAndCreateLink()
+    {
+        Disabled = true;
+        await InvokeAsync(StateHasChanged);
+
+        var file = (await FileReaderService.CreateReference(_ref).EnumerateFilesAsync()).FirstOrDefault();
+        if (file is null) return;
+
+        var link = await (await file.UploadFile("zip")).Content.ReadAsStringAsync();
+        using var resp = await Ez.GetHttpPostResponse("media/setasprojectfile", new Dictionary<string, string>
+    {
+            {"url", link },
+            {"name", FileName },
+            {"convId", Conversation.Id }
+        });
+        var sresp = await resp.Content.ReadAsStringAsync();
+        if (resp.IsSuccessStatusCode)
+        {
+            await RefreshFiles();
+        }
+        else
+        {
+            ToastService.ShowToast(sresp, ToastLevel.Error);
+        }
+
+
+        Disabled = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task RefreshFiles()
+    {
+        Loading = true;
+        await InvokeAsync(StateHasChanged);
+
+        using var resp = await Ez.GetHttpPostResponse($"media/getfilelinks/{Conversation.Id}");
+        if (resp.IsSuccessStatusCode)
+        {
+            Files = (await resp.Content.ReadAsStringAsync()).FromJson<List<ChatFile>>();
+
+            await InvokeAsync(StateHasChanged);
+        }
+
+        Loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshFiles();
+        Loading = false;
+        await base.OnInitializedAsync();
+    }
+}

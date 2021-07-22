@@ -1,0 +1,249 @@
+﻿@page "/jobs/new"
+
+@using SharedLib.Models;
+@inject IFileReaderService fileReader
+
+
+<h1 class="top-header">Add new job offer</h1>
+<div class="form-wrapper white-bg">
+    <form @onsubmit="Submit">
+        <div class="form-group">
+            <label style="font-size:18px" for="title">Title</label>
+            <input required type="text" @bind="Post.Title" class="form-control" id="title" placeholder="Enter job title">
+        </div>
+        <div class="form-group">
+            <label for="dsc" style="font-size:18px" >Description</label>
+            <textarea class="form-control" id="dsc" placeholder="Enter job description" rows="3"
+                      required
+                      @bind="Post.Description" maxlength="5000"></textarea>
+            <label>@draftMsg</label>
+        </div>
+        <div class="form-group">
+            <label for="images" style="font-size:18px" >Images (Max 30MB/Image)</label>
+            <input type="file" @ref="_ref" multiple @onchange="UploadPics" />
+            <hr />
+            @foreach (var i in Post.Images)
+            {
+                <div style="display:table-cell">
+                    <img src="@i" />
+                    <button class="btn btn-danger" @onclick="()=>Post.Images.Remove(i)">X</button>
+                </div>
+            }
+        </div>
+        <div class="form-group">
+
+            <h5 style="font-size:18px" >Remuneration</h5>
+            <label for="salary">Minimum</label>
+            <input required type="number" class="form-control" id="salary" @bind="Post.ProposedSalary[0]">
+            <label for="salary2">Maximum</label>
+            <input required type="number" class="form-control" id="salary2" @bind="Post.ProposedSalary[1]">
+        </div>
+
+        <div class="form-group">
+            <label for="currency" style="font-size:18px" >Currency</label>
+            <select required class="form-control" @bind="Post.Currency">
+                @foreach (var cur in Enum.GetValues(typeof(Currency)))
+                {
+                    <option value="@cur">@cur</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="duration" style="font-size:18px">Work duration in days</label>
+            <input required type="number" class="form-control" id="duration" @bind="Post.WorkDuration">
+        </div>
+        <div class="form-group">
+            <label for="tags" style="font-size:18px" >Tags</label>
+            <div>
+                @foreach (var tag in Post.Tags)
+                {
+                    <span class="tag" @onclick="()=>Post.Tags.Remove(tag)">@tag</span>
+                }
+            </div>
+            <input type="text" class="form-control" id="tags" placeholder="Enter tags"
+                   @bind-value="newTag"
+                   @bind-value:event="oninput"
+                   @onkeyup="GetTags">
+            <div>
+                @foreach (var tag in ProposedTags)
+                {
+                    if (Post.Tags.Contains(tag.TagName)) continue;
+                    <span class="tag" @onclick="()=>Post.Tags.Add(tag.TagName)">@tag.TagName - <b>@tag.UseCount</b></span>
+                }
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="category" style="font-size:18px" >Categories</label>
+            <select class="form-control" id="category" @bind="lastCat">
+                @foreach (var cat in Enum.GetValues(typeof(JobCategory)))
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+            <hr />
+            <ul>
+                @foreach (var cat in Post.Categories)
+                {
+                    if (cat is JobCategory.Any) continue;
+                    <li>@cat <a style="color: red" @onclick="()=>Post.Categories.Remove(cat)">X</a></li>
+                }
+            </ul>
+        </div>
+        <hr />
+        <label>@error</label>
+        <button type="submit" id="smtbtn" disabled="@Submitting" class="btn btn-primary">Post now</button>
+        <button type="button" class="btn btn-primary btn-sm" @onclick="JPSave">Save draft</button>
+    </form>
+</div>
+
+@code {
+    //[Inject] IFileReaderService fileReader;
+    string draftMsg = string.Empty;
+    SharedLib.Models.JobPost Post = new SharedLib.Models.JobPost();
+    JobCategory lastCat
+    {
+        get => lastCatVal; set
+        {
+            lastCatVal = value;
+            if (!Post.Categories.Contains(lastCatVal) && lastCatVal != JobCategory.Any)
+                Post.Categories.Add(lastCatVal);
+        }
+    }
+    JobCategory lastCatVal = JobCategory.Any;
+
+    ElementReference _ref = new ElementReference();
+
+    async Task JPSave()
+    {
+        draftMsg = "Saving draft";
+
+        await Task.Delay(1000);
+        using var resp = await Ez.GetHttpPostResponse($"drafts/jpsave", new Dictionary<string, string>
+         {
+             {"jpost", Post.ToJson() }
+         });
+        if (resp.IsSuccessStatusCode) draftMsg = "Draft saved";
+        else draftMsg = "Draft save failed";
+
+        await Task.Delay(3000);
+        draftMsg = string.Empty;
+    }
+
+    async Task UploadPics()
+    {
+        var images = await fileReader.CreateReference(_ref).EnumerateFilesAsync();
+        foreach (var img in images)
+        {
+            var url = await img.PostImage();
+            Post.Images.Add(await url.Content.ReadAsStringAsync());
+        }
+    }
+
+
+    string error = string.Empty;
+    bool Submitting = false;
+
+    DateTime LastRequest = DateTime.UtcNow;
+
+    int currentReqs = 0;
+    async Task GetTags()
+    {
+        try
+        {
+            if (/*newTag.Last() is ' ' ||*/ newTag.Trim().Last() is ',')
+            {
+                newTag = new string(newTag.Trim(','));
+                Post.Tags.Add(newTag.Trim());
+                newTag = string.Empty;
+            }
+        }
+        catch { }
+
+        if (currentReqs > 1) return;
+        while (currentReqs > 0)
+            await Task.Delay(1000);
+
+        System.Threading.Interlocked.Increment(ref currentReqs);
+
+        using var resp = await Ez.GetHttpPostResponse($"tags/get/{newTag}");
+        if (resp.IsSuccessStatusCode)
+            ProposedTags = (await resp.Content.ReadAsStringAsync()).FromJson<List<DbTag>>();
+
+        System.Threading.Interlocked.Decrement(ref currentReqs);
+    }
+
+    string newTag = string.Empty;
+    List<DbTag> ProposedTags = new List<DbTag>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cnt = 0;
+        while (!Session.GotInfo)
+        {
+            cnt++;
+            await Task.Delay(1000);
+            if (cnt > 6)
+            {
+                NavMan.NavigateTo("/login");
+                return;
+            }
+        }
+        using var pres = await Ez.GetHttpPostResponse("info/canpost/" + Session.User.Id, null, false);
+
+        if (string.IsNullOrWhiteSpace(Post.Description))
+        {
+            using var draftres = await Ez.GetHttpPostResponse("drafts/jpget");
+
+            if (draftres.IsSuccessStatusCode)
+                Post = (await draftres.Content.ReadAsStringAsync()).FromJson<JobPost>();
+        }
+
+        if (pres.IsSuccessStatusCode)
+        {
+            var resp = (await pres.Content.ReadAsStringAsync()).FromJson<Dictionary<string, bool>>();
+            if (!resp["canpost"])
+            {
+                ToastService.ShowToast("You have posted too many times, please upgrade your subscription", ToastLevel.Info);
+                NavMan.NavigateTo("/");
+            }
+        }
+        await base.OnInitializedAsync();
+    }
+
+    async Task Submit()
+    {
+        Submitting = true;
+        await InvokeAsync(StateHasChanged);
+
+        Post.Active = true;
+        Post.PostDate = DateTime.UtcNow;
+
+        using var resp = await Ez.GetHttpPostResponse("job/post", new Dictionary<string, string>
+    {
+            {"jpost", Post.ToJson() },
+        });
+
+        if (Post.Categories.Count is 0)
+        {
+            error = "You need to add a category";
+            Submitting = false;
+            return;
+        }
+        else if (!Post.VerifyContent(Session.Subscription.Type))
+        {
+            error = "Please input all the fields";
+            Submitting = false;
+            return;
+        }
+
+        var content = await resp.Content.ReadAsStringAsync();
+
+        if (resp.IsSuccessStatusCode)
+            NavMan.NavigateTo($"/post/hire/{content}");
+        else error = content;
+
+        Submitting = false;
+        StateHasChanged();
+    }
+}
