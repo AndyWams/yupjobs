@@ -242,7 +242,7 @@ button:hover {
   border-radius: 20px 20px 0px 0px;
 }
 .main--alt section.content .grid .content--article .title--header label {
-  padding: 1em;
+  padding: 1em 2em;
   font-size: 16px;
   letter-spacing: 1px;
   margin: 0;
