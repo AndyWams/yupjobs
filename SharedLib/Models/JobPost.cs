@@ -1,37 +1,49 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Text;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace SharedLib.Models
 {
     public class JobPost
     {
-        [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+        [BsonId]
+        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
         public string Id { get; set; }
+
         public string UserId { get; set; }
 
         public bool Active { get; set; }
+
         public DateTime PostDate { get; set; }
+
         public DateTime PostAutoRemoveDate { get; set; }
+
         public string Title { get; set; }
+
         public string Description { get; set; } = string.Empty;
+
         public short WorkDuration { get; set; }
+
         //public TimeSpan Duration { get; set; }
+        public decimal[] ProposedSalary
+        { get; set;
+        } = new decimal[] { 100.00m, 300.00m };
 
-        public decimal[] ProposedSalary { get; set; } = new decimal[] { 
-            100.00m,
-            300.00m
-        };
         public Currency Currency { get; set; }
-        //public List<KeyValuePair<string, decimal>> Payments { get; set; } = new List<KeyValuePair<string, decimal>>();
 
+        //public List<KeyValuePair<string, decimal>> Payments { get; set; } = new List<KeyValuePair<string, decimal>>();
         public List<string> Tags { get; set; } = new List<string>();
+
         public List<string> Images { get; set; } = new List<string>();
 
         public string Username { get; set; }
-        public List<JobCategory> Categories { get; set; } = new List<JobCategory>();
+
+        public List<JobCategory> Categories
+        { get; set;
+        } = new List<JobCategory>();
+
         public short MaxApplies { get; set; }
 
         public long Views { get; set; } = 0;
@@ -41,33 +53,53 @@ namespace SharedLib.Models
 
     public class JobSearchPost
     {
-        [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+        [BsonId]
+        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
         public string Id { get; set; }
+
         public string UserId { get; set; }
 
         public DateTime PostDate { get; set; }
+
         public DateTime PostAutoRemoveDate { get; set; }
 
         public string Title { get; set; }
+
         public string Description { get; set; }
-        public List<JobCategory> Categories { get; set; } = new List<JobCategory>();
+
+        public List<JobCategory> Categories
+        { get; set;
+        } = new List<JobCategory>();
+
         public decimal[] RequestedSalary { get; set; } = new decimal[1];
+
         public Currency Currency { get; set; }
+
         public bool Active { get; set; }
+
         public string ProfileId { get; set; }
+
         public string Username { get; set; }
+
         public List<string> Tags { get; set; } = new List<string>();
+
         public short MaxApplies { get; set; }
+
         public string Country { get; set; }
-        public List<PostExperience> Experience { get; set; } = new List<PostExperience>();
+
+        public List<PostExperience> Experience
+        { get; set;
+        } = new List<PostExperience>();
 
         public long Views { get; set; } = 0;
+
         public bool Promoted { get; set; }
     }
 
     public class PostExperience
     {
         public string ExpName { get; set; } = string.Empty;
+
         public short ExpYears { get; set; } = 1;
     }
 
@@ -75,7 +107,6 @@ namespace SharedLib.Models
     {
         Any = 100,
         Misc = 0,
-        
         //software
         Development = 1,
         Fullstack = 11,
@@ -104,13 +135,18 @@ namespace SharedLib.Models
 
     public class Report
     {
-        [BsonId][BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+        [BsonId]
+        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
         public string Id { get; set; }
 
         public string UserId { get; set; }
+
         public string Reason { get; set; }
+
         public string TargetId { get; set; }
+
         public ReportType Type { get; set; }
+
         public DateTime Date { get; set; }
 
         public string StaffId { get; set; }
@@ -128,15 +164,22 @@ namespace SharedLib.Models
 
     public class JobPostFilter
     {
-        public List<JobCategory> Categories = new List<JobCategory>() { JobCategory.Any };
+        public List<JobCategory>
+            Categories = new List<JobCategory>() { JobCategory.Any };
+
         public string Search = string.Empty;
+
         public List<string> Tags = new List<string>();
+
         /// <summary>
         /// In days
         /// </summary>
         public int MaxDuration = 30;
+
         public DateTime MaxDate = DateTime.UtcNow - TimeSpan.FromDays(60);
+
         public decimal MinimumSalary = 50;
+
         public short MaxCount = 40;
     }
 }

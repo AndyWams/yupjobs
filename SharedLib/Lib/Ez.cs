@@ -1,4 +1,4 @@
-﻿#define LOCAL
+﻿//#define LOCAL
 
 using Newtonsoft.Json;
 using SharedLib.Models;
@@ -34,8 +34,8 @@ namespace SharedLib.Lib
         }
 
         public static Jwt AuthToken = null;
-        static HttpClientHandler Handler = new HttpClientHandler() {
-            
+        static HttpClientHandler Handler = new HttpClientHandler()
+        {
         };
 
         public static HttpClient HttpClient = new HttpClient(Handler);
@@ -66,7 +66,7 @@ namespace SharedLib.Lib
                 //    d
                 //};
 
-                var resp = await HttpClient.PostAsync(Url+path, content);
+                var resp = await HttpClient.PostAsync(Url + path, content);
                 //Debug.WriteLine("Post response headers =>");
                 foreach (var h in resp.Headers)
                 {
@@ -90,10 +90,10 @@ namespace SharedLib.Lib
 
         public static string GetStringResponse(string path, Dictionary<string, string> form = null)
             => GetHttpPostResponse(path, form).Result.Content.ReadAsStringAsync().Result;
-        
+
         public static async Task<bool> VerifyMultiJwt(this Jwt jwt)
         {
-            using var content = new FormUrlEncodedContent(new Dictionary<string, string> { { "token", JsonConvert.SerializeObject(jwt)} });
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string> { { "token", JsonConvert.SerializeObject(jwt) } });
             using var resp = await HttpClient.PostAsync("https://mltapi1.azurewebsites.net/api/verify", content);
             if (resp.IsSuccessStatusCode) return true;
             else return false;
@@ -111,11 +111,11 @@ namespace SharedLib.Lib
             var monthsMlt = 0.5f;
             int minStreak = 3;
             int streak = months - 3 <= 0 ? 0 : months - 3;
-            
+
             float disc = 0;
             for (short i = 0; i < streak; i++)
-                disc += 3f;    
-            
+                disc += 3f;
+
             switch (type)
             {
                 case SubscriptionType.Personal:
@@ -127,7 +127,7 @@ namespace SharedLib.Lib
                 case SubscriptionType.Business:
                     maxDiscount = 20;
                     break;
-                default: return (0,0,0);
+                default: return (0, 0, 0);
             }
 
             var ndisc = (float)Math.Round(disc >= maxDiscount ? maxDiscount : disc);
